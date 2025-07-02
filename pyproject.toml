@@ -3,5 +3,16 @@ name = "rag-colombia"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.9"
-dependencies = []
+requires-python = ">=3.13"
+dependencies = [
+    "dotenv>=0.9.9",
+    "firecrawl-py>=2.13.0",
+    "langchain>=0.3.26",
+    "langchain-community>=0.3.26",
+    "langchain-text-splitters>=0.3.8",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.1",
+]
