@@ -2,6 +2,7 @@ from index.extractor import Extractor
 from index.splitter import Splitter
 from index.embeddings import EmbeddingService
 from index.vector_store import VectorStoreService
+from index.llm_service import LLMService
 
 class IndexService:
 
@@ -10,6 +11,14 @@ class IndexService:
         self.splitter = Splitter()
         self.embedding_service = EmbeddingService()
         self.vector_store_service = VectorStoreService()
+        self.llm_service = LLMService()
+        
+        # Inicializar conexión a Pinecone para búsquedas
+        print("🔌 Conectando a Pinecone para búsquedas...")
+        if self.vector_store_service.create_index_if_not_exists():
+            print("✅ Conexión a Pinecone establecida")
+        else:
+            print("❌ Error conectando a Pinecone")
 
     def index_pipeline(self):
         """
@@ -87,3 +96,22 @@ class IndexService:
             print("❌ No se encontraron resultados")
         
         return results
+
+    def ask_question(self, question: str) -> str:
+        """
+        Método principal del RAG: pregunta → búsqueda → generación → respuesta
+        """
+        print(f"\n❓ PREGUNTA: {question}")
+        print("=" * 50)
+        
+        # 1. Búsqueda semántica (ya funciona)
+        search_results = self.vector_store_service.search_similar(question, top_k=5)
+        
+        # 2. Generación de respuesta con LLM (nuevo)
+        answer = self.llm_service.generate_answer(question, search_results)
+        
+        print(f"\n💡 RESPUESTA:")
+        print(answer)
+        print("=" * 50)
+        
+        return answer
