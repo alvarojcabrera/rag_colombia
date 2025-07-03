@@ -3,82 +3,157 @@ from typing import List, Dict, Any
 
 class LLMService:
     """
-    Servicio para generar respuestas usando Ollama + LLM.
-    Toma los chunks encontrados por la búsqueda semántica y genera respuestas coherentes.
-    SOLO responde preguntas sobre Colombia basándose en información de Wikipedia.
+    Servicio MEJORADO para generar respuestas usando Ollama + LLM.
+    
+    MEJORAS IMPLEMENTADAS:
+    - Usa más chunks relevantes (hasta 10 en lugar de 5)
+    - Filtra mejor los chunks por similarity score
+    - No menciona "Fragmento X" en las respuestas
+    - Mejor contexto y respuestas más naturales
     """
     
     def __init__(self, model_name: str = "llama3.1:8b"):
-        print(f"🤖 Inicializando LLM: {model_name}")
+        print(f"🤖 Inicializando LLM mejorado: {model_name}")
         self.llm = OllamaLLM(model=model_name)
-        print("✅ LLM inicializado correctamente")
+        print("✅ LLM mejorado inicializado correctamente")
     
-    def create_prompt(self, query: str, chunks: List[Dict[str, Any]]) -> str:
+    def filter_relevant_chunks(self, search_results: List[Dict[str, Any]], min_score: float = 0.25) -> List[Dict[str, Any]]:
         """
-        Crea el prompt combinando la pregunta del usuario con el contexto encontrado.
-        Incluye validaciones estrictas para solo responder sobre Colombia.
-        """
-        # Construir el contexto con los chunks más relevantes
-        context_parts = []
-        for i, chunk in enumerate(chunks[:3]):  # Solo los 3 más relevantes
-            content = chunk['content'][:500]  # Limitar tamaño
-            context_parts.append(f"Fragmento {i+1}: {content}")
+        Filtra chunks por similarity score y los ordena por relevancia.
         
+        Args:
+            search_results: Resultados de búsqueda semántica
+            min_score: Score mínimo para considerar relevante (0.25 = más inclusivo)
+        """
+        if not search_results:
+            return []
+        
+        # Filtrar por score mínimo
+        relevant_chunks = [
+            chunk for chunk in search_results 
+            if chunk.get('similarity_score', 0) >= min_score
+        ]
+        
+        # Ordenar por score descendente (ya deberían estar ordenados, pero por seguridad)
+        relevant_chunks.sort(key=lambda x: x.get('similarity_score', 0), reverse=True)
+        
+        print(f"📊 Chunks filtrados: {len(relevant_chunks)}/{len(search_results)} sobre threshold {min_score}")
+        
+        return relevant_chunks
+    
+    def create_enhanced_context(self, relevant_chunks: List[Dict[str, Any]]) -> str:
+        """
+        Crea un contexto mejorado sin mencionar "Fragmento X".
+        Combina información relacionada de forma más natural.
+        """
+        if not relevant_chunks:
+            return ""
+        
+        # Agrupar por headers similares si existen
+        context_parts = []
+        
+        for i, chunk in enumerate(relevant_chunks):
+            content = chunk.get('content', '').strip()
+            
+            # Limpiar contenido
+            if content:
+                # Limitar tamaño pero no cortar bruscamente
+                if len(content) > 800:
+                    # Buscar un punto para cortar naturalmente
+                    truncated = content[:800]
+                    last_period = truncated.rfind('.')
+                    last_space = truncated.rfind(' ')
+                    
+                    if last_period > 600:  # Si hay un punto cerca del final
+                        content = content[:last_period + 1]
+                    elif last_space > 600:  # Si no, cortar en espacio
+                        content = content[:last_space] + "..."
+                    else:
+                        content = truncated + "..."
+                
+                context_parts.append(content)
+        
+        # Unir todo el contexto de forma natural
         context = "\n\n".join(context_parts)
         
-        # Crear el prompt con validaciones estrictas
-        prompt = f"""Eres un asistente especializado ÚNICAMENTE en Colombia. Tu base de datos contiene SOLAMENTE información de Wikipedia sobre Colombia.
+        print(f"📝 Contexto creado con {len(context_parts)} secciones relevantes")
+        return context
+    
+    def create_enhanced_prompt(self, query: str, context: str) -> str:
+        """
+        Crea un prompt mejorado que genera respuestas más naturales.
+        """
+        prompt = f"""Eres un experto en Colombia con acceso a información actualizada de Wikipedia. Tu trabajo es responder preguntas sobre Colombia de manera clara, precisa y natural.
 
-REGLAS ESTRICTAS QUE DEBES SEGUIR:
-1. SOLO responde preguntas relacionadas con Colombia (geografía, historia, cultura, política, economía, etc.)
-2. SOLO usa la información proporcionada en los fragmentos de Wikipedia Colombia
-3. Si la pregunta NO parece estar relacionada con Colombia, responde exactamente: "Solo puedo responder preguntas sobre Colombia. ¿Hay algo específico sobre Colombia que te gustaría saber?"
-4. Si la pregunta ES sobre Colombia pero NO hay información suficiente en los fragmentos, responde: "No tengo información suficiente en mi base de datos sobre Colombia para responder esa pregunta específica."
-5. NUNCA inventes información que no esté en los fragmentos proporcionados
-6. Responde en español de forma clara y concisa
+INSTRUCCIONES IMPORTANTES:
+1. SOLO responde preguntas relacionadas con Colombia
+2. Usa ÚNICAMENTE la información proporcionada abajo
+3. Responde de forma natural y conversacional (NO menciones "fragmentos" ni "según el fragmento X")
+4. Si la pregunta no es sobre Colombia, responde: "Solo puedo responder preguntas sobre Colombia. ¿Hay algo específico sobre Colombia que te gustaría saber?"
+5. Si no hay información suficiente, responde: "No tengo información suficiente para responder esa pregunta específica sobre Colombia."
+6. Sé preciso pero amigable en tus respuestas
 
-INFORMACIÓN DISPONIBLE DE COLOMBIA:
+INFORMACIÓN DISPONIBLE SOBRE COLOMBIA:
 {context}
 
-PREGUNTA DEL USUARIO: {query}
+PREGUNTA: {query}
 
-ANÁLISIS Y RESPUESTA:"""
+RESPUESTA (natural y directa):"""
         
         return prompt
     
     def generate_answer(self, query: str, search_results: List[Dict[str, Any]]) -> str:
         """
-        Genera una respuesta basada en la query y los resultados de búsqueda.
-        Incluye validaciones inteligentes basadas en similarity scores.
+        Genera una respuesta MEJORADA basada en la query y más chunks relevantes.
+        
+        MEJORAS:
+        - Usa más chunks (hasta 10 en lugar de 5)
+        - Mejor filtrado por similarity score
+        - Respuestas más naturales sin mencionar "fragmentos"
         """
-        # Si no hay resultados de búsqueda
-        if not search_results:
-            return "No encontré información relevante sobre Colombia para responder tu pregunta. ¿Podrías ser más específico?"
-        
-        # Verificar la calidad de los resultados basándose en similarity scores
-        best_score = max(r.get('similarity_score', 0) for r in search_results)
-        
-        # Si el mejor score es muy bajo, probablemente no es sobre Colombia
-        if best_score < 0.4:
-            return "Tu pregunta no parece estar relacionada con la información que tengo sobre Colombia. Solo puedo responder preguntas sobre Colombia basándome en Wikipedia."
-        
-        # Filtrar solo resultados con score decente
-        relevant_results = [r for r in search_results if r.get('similarity_score', 0) > 0.3]
-        
-        if not relevant_results:
-            return "No encontré información suficientemente relevante sobre Colombia para responder tu pregunta específica."
-        
-        # Crear el prompt mejorado
-        prompt = self.create_prompt(query, relevant_results)
-        
-        print(f"🧠 Generando respuesta para: '{query[:50]}...'")
-        print(f"📊 Mejor score de similitud: {best_score:.3f}")
-        
         try:
+            # Si no hay resultados de búsqueda
+            if not search_results:
+                return "No encontré información relevante sobre Colombia para responder tu pregunta. ¿Podrías ser más específico?"
+            
+            # Verificar calidad general de los resultados
+            best_score = max(r.get('similarity_score', 0) for r in search_results)
+            
+            print(f"🔍 Analizando {len(search_results)} chunks encontrados")
+            print(f"📊 Mejor score de similitud: {best_score:.3f}")
+            
+            # Si el mejor score es muy bajo, probablemente no es sobre Colombia
+            if best_score < 0.3:
+                return "Tu pregunta no parece estar relacionada con la información que tengo sobre Colombia. Solo puedo responder preguntas sobre Colombia basándome en Wikipedia."
+            
+            # Filtrar chunks relevantes con threshold más bajo para incluir más información
+            relevant_chunks = self.filter_relevant_chunks(search_results, min_score=0.25)
+            
+            if not relevant_chunks:
+                return "No encontré información suficientemente relevante sobre Colombia para responder tu pregunta específica."
+            
+            # Crear contexto mejorado
+            context = self.create_enhanced_context(relevant_chunks)
+            
+            if not context.strip():
+                return "No pude extraer información útil para responder tu pregunta sobre Colombia."
+            
+            # Crear prompt mejorado
+            prompt = self.create_enhanced_prompt(query, context)
+            
+            print(f"🧠 Generando respuesta con {len(relevant_chunks)} chunks relevantes...")
+            print(f"📏 Tamaño del contexto: {len(context)} caracteres")
+            
             # Generar respuesta
             response = self.llm.invoke(prompt)
-            print("✅ Respuesta generada exitosamente")
-            return response.strip()
+            answer = response.strip()
+            
+            # Validación adicional de la respuesta
+            if not answer or len(answer) < 20:
+                return "No pude generar una respuesta apropiada. Por favor, reformula tu pregunta sobre Colombia."
+            
+            print("✅ Respuesta mejorada generada exitosamente")
+            return answer
             
         except Exception as e:
             print(f"❌ Error generando respuesta: {e}")
@@ -97,6 +172,6 @@ ANÁLISIS Y RESPUESTA:"""
     def ask_question(self, query: str, search_results: List[Dict[str, Any]]) -> str:
         """
         Método principal para hacer preguntas al sistema RAG.
-        Utiliza la validación inteligente basada en similarity scores.
+        Utiliza la nueva lógica mejorada.
         """
         return self.generate_answer(query, search_results)

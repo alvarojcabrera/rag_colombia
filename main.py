@@ -1,70 +1,89 @@
-from index.extractor import Extractor
 from index.index import IndexService
-from index.splitter import Splitter
+from langchain_core.documents import Document
+import os
+from dotenv import load_dotenv
 
 def main():
-    """
-    Función principal que ejecuta el pipeline completo de RAG:
-    1. Extracción y limpieza de contenido
-    2. Splitting y chunking
-    3. Generación de embeddings
-    """
+    """Función principal OPTIMIZADA que sigue la documentación de LangChain."""
+    load_dotenv()
+    
+    required_keys = ["PINECONE_API_KEY", "FIRECRAWL_API_KEY"]
+    for key in required_keys:
+        if not os.getenv(key):
+            print(f"❌ {key} no está configurada en el archivo .env")
+            return
+    
     try:
-        print("🚀 Iniciando sistema RAG para Colombia...")
+        print("🚀 Iniciando sistema RAG optimizado para Colombia...")
+        print("🔧 Usando la documentación oficial de LangChain")
         
-        # Crear el servicio de indexación
-        index_service = IndexService()
+        index_service = IndexService(
+            embedding_model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+        )
         
-        # Ejecutar el pipeline completo
-        embedded_chunks = index_service.index_pipeline()
+        print("\n📋 Pipeline completo desde URL")
+        url = "https://es.wikipedia.org/wiki/Colombia"
+        success = index_service.index_pipeline(url=url)
         
-        # Verificar si el pipeline fue exitoso
-        if embedded_chunks is None:
-            print("❌ El pipeline retornó None - revisar errores arriba")
-            return None
+        if not success:
+            print("❌ Error en pipeline principal")
+            return
         
-        # Mostrar resumen final
-        print(f"\n📊 RESUMEN FINAL:")
-        print(f"   - Total chunks procesados: {len(embedded_chunks)}")
-        print(f"   - Dimensión embeddings: 384")
-        print(f"   - Archivos generados:")
-        print(f"     • colombia.md (contenido original)")
-        print(f"     • colombia_clean.md (contenido limpio)")
-        print(f"     • embeddings_cache.json (cache de embeddings)")
+        print("\n📋 Indexando documentos adicionales")
+        additional_docs = [
+            Document(
+                page_content="Gabriel García Márquez fue un escritor colombiano ganador del Premio Nobel de Literatura en 1982.",
+                metadata={"source": "manual", "topic": "literatura"}
+            ),
+            Document(
+                page_content="El café colombiano es reconocido mundialmente por su calidad excepcional.",
+                metadata={"source": "manual", "topic": "agricultura"}
+            ),
+            Document(
+                page_content="Cartagena de Indias es una ciudad histórica en la costa caribeña de Colombia.",
+                metadata={"source": "manual", "topic": "turismo"}
+            )
+        ]
         
-        # Mostrar algunos ejemplos de chunks
-        print(f"\n🔍 EJEMPLOS DE CHUNKS PROCESADOS:")
-        for i, chunk in enumerate(embedded_chunks[:3]):
-            print(f"\n   Chunk {i+1}:")
-            print(f"   ID: {chunk['chunk_id']}")
-            print(f"   Metadata: {chunk['metadata']}")
-            print(f"   Contenido: {chunk['content'][:150]}...")
-            print(f"   Embedding: [{chunk['embedding'][0]:.4f}, {chunk['embedding'][1]:.4f}, ...] (384 dims)")
+        success = index_service.index_documents(additional_docs)
+        if success:
+            print("✅ Documentos adicionales indexados")
         
-        print(f"\n✅ Pipeline completado exitosamente!")
-        print(f"🎯 Sistema listo para búsquedas semánticas")
+        print("\n📊 ESTADÍSTICAS FINALES:")
+        stats = index_service.get_stats()
+        if 'error' not in stats:
+            print(f"   📈 Total de vectores: {stats['total_vectors']}")
+            print(f"   📏 Dimensión: {stats['dimension']}")
         
-        # Probar búsqueda semántica
-        print(f"\n🧪 PROBANDO BÚSQUEDA SEMÁNTICA:")
-        
-        # Realizar algunas búsquedas de prueba
+        print("\n🔍 PROBANDO BÚSQUEDAS SEMÁNTICAS:")
         test_queries = [
             "¿Cuál es la capital de Colombia?",
-            "Historia de Colombia", 
-            "Geografía y clima colombiano"
+            "Escritores colombianos famosos",
+            "Turismo en Colombia"
         ]
         
         for query in test_queries:
-            print(f"\n" + "="*50)
-            results = index_service.search(query, top_k=3)
+            print(f"\n🔍 Consulta: '{query}'")
+            results = index_service.search(query, top_k=2)
             
-        return embedded_chunks
+            if results:
+                for i, result in enumerate(results, 1):
+                    print(f"   {i}. Score: {result['similarity_score']:.3f}")
+                    print(f"      {result['content'][:100]}...")
+            else:
+                print("   ❌ No se encontraron resultados")
+        
+        print("\n✅ PROCESO COMPLETADO EXITOSAMENTE!")
+        print("🎯 Resumen del proceso optimizado:")
+        print("   ✅ Pipeline simplificado")
+        print("   ✅ Sigue documentación oficial de LangChain")
+        print("   ✅ Embeddings automáticos")
+        print("   ✅ Sistema RAG completo operativo")
         
     except Exception as e:
         print(f"❌ Error durante la ejecución: {e}")
         import traceback
         traceback.print_exc()
-        return None
 
 if __name__ == "__main__":
     main()
