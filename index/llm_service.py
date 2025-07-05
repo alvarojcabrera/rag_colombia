@@ -1,6 +1,6 @@
-from langchain_ollama import OllamaLLM
-from langchain_openai import OpenAI
-from langchain_core.language_models import BaseLLM
+from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
+from langchain_core.language_models import BaseChatModel
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 import os
@@ -16,7 +16,7 @@ class LLMService:
     - Mejor contexto y respuestas más naturales
     """
 
-    llm: BaseLLM
+    llm: BaseChatModel
     
     def __init__(self, model_name: str = "gemma3n:e2b"):
         load_dotenv()
@@ -31,11 +31,11 @@ class LLMService:
         print("✅ LLM mejorado inicializado correctamente")
 
     def get_local_llm(self, model_name: str = "gemma3n:e2b"):
-        return OllamaLLM(model=model_name)
+        return ChatOllama(model=model_name)
     
     def get_hosted_llm(self, openrouter_api_key):
         # Usa un modelo hosteado en OpenRouter, compatible con la api de openai
-        return OpenAI(
+        return ChatOpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=openrouter_api_key,
             model="google/gemma-3n-e4b-it:free"
@@ -169,7 +169,7 @@ RESPUESTA (natural y directa):"""
             print(f"📏 Tamaño del contexto: {len(context)} caracteres")
             
             # Generar respuesta
-            response = self.llm.invoke(prompt)
+            response = str(self.llm.invoke(prompt).content)
             answer = response.strip()
             
             # Validación adicional de la respuesta
@@ -188,7 +188,7 @@ RESPUESTA (natural y directa):"""
         Método para probar que el LLM funciona básicamente.
         """
         try:
-            response = self.llm.invoke("Di 'Hola' en una palabra")
+            response = self.llm.invoke("Di 'Hola' en una palabra").content
             return response.strip()
         except Exception as e:
             return f"Error: {str(e)}"
