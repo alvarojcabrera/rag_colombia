@@ -1,5 +1,9 @@
 from langchain_ollama import OllamaLLM
+from langchain_openai import OpenAI
+from langchain_core.language_models import BaseLLM
 from typing import List, Dict, Any
+from dotenv import load_dotenv
+import os
 
 class LLMService:
     """
@@ -11,11 +15,31 @@ class LLMService:
     - No menciona "Fragmento X" en las respuestas
     - Mejor contexto y respuestas más naturales
     """
+
+    llm: BaseLLM
     
-    def __init__(self, model_name: str = "llama3.1:8b"):
+    def __init__(self, model_name: str = "gemma3n:e2b"):
+        load_dotenv()
+        openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
         print(f"🤖 Inicializando LLM mejorado: {model_name}")
-        self.llm = OllamaLLM(model=model_name)
+        if openrouter_api_key is None:
+            print("API Key de OpenRouter no encontrada. Usando modelo local")
+            self.llm = self.get_local_llm(model=model_name)
+        else:
+            print("API Key de OpenRouter encontrada. Usando modelo hosteado")
+            self.llm = self.get_hosted_llm(openrouter_api_key)
         print("✅ LLM mejorado inicializado correctamente")
+
+    def get_local_llm(self, model_name: str = "gemma3n:e2b"):
+        return OllamaLLM(model=model_name)
+    
+    def get_hosted_llm(self, openrouter_api_key):
+        # Usa un modelo hosteado en OpenRouter, compatible con la api de openai
+        return OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=openrouter_api_key,
+            model="google/gemma-3n-e4b-it:free"
+        )
     
     def filter_relevant_chunks(self, search_results: List[Dict[str, Any]], min_score: float = 0.25) -> List[Dict[str, Any]]:
         """

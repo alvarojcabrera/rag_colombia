@@ -6,12 +6,13 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "dotenv>=0.9.9",
-    "fastapi>=0.115.14",
+    "fastapi[standard]>=0.115.14",
     "firecrawl-py>=2.13.0",
     "langchain>=0.3.26",
     "langchain-community>=0.3.26",
     "langchain-huggingface>=0.3.0",
     "langchain-ollama>=0.3.3",
+    "langchain-openai>=0.3.27",
     "langchain-pinecone>=0.2.8",
     "langchain-text-splitters>=0.3.8",
     "pinecone-client>=6.0.0",
